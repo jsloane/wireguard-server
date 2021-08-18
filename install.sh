@@ -2,9 +2,9 @@
 
 ### Ubuntu client setup
 # sudo apt install wireguard
-# sudo nano /etc/wireguard/wg0-client.conf
-# sudo systemctl enable wg-quick@wg0-client.service
-# sudo systemctl start wg-quick@wg0-client.service
+# sudo nano /etc/wireguard/wg0.conf
+# sudo systemctl enable wg-quick@wg0.service
+# sudo systemctl start wg-quick@wg0.service
 
 ### testing network connectivity
 ## on destination server:
