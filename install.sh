@@ -80,7 +80,7 @@ echo ""
 # Duck DNS
 ###############
 
-cp $SCRIPT_DIR/wireguard-server/scripts/ip-address-update /etc/cron.hourly/ip-address-update
+cp $SCRIPT_DIR/scripts/ip-address-update /etc/cron.hourly/ip-address-update
 sed -i "s#token_value#$DDNS_TOKEN#" /etc/cron.hourly/ip-address-update
 sed -i "s#domains_value#$DDNS_DOMAINS#" /etc/cron.hourly/ip-address-update
 chmod ugo+x /etc/cron.hourly/ip-address-update
