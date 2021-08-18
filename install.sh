@@ -94,7 +94,7 @@ chmod ugo+x /etc/cron.hourly/ip-address-update
 
 if ! [ -x "$(command -v wg)" ]; then
 	# accept all incoming traffic # TODO avoid removing oracle iptables rules
-	if [ ! -f "$SCRIPT_DIR/rules.v4.backup" ]; then
+	if [ ! -f "~/rules.v4.backup" ]; then
 		echo "Backing up /etc/iptables/rules.v4..."
 		cp /etc/iptables/rules.v4 ~/rules.v4.backup
 	fi
