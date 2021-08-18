@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+# cron job to update ip addresses for dynamic dns service
+# 
+# copy script to /etc/cron.hourly change ownership to root and make it user executable
+#
+
+echo '### ip-address-update start ###'
+
+token="token_value"
+domains="domains_value"
+data_file="/run/ip-address-update.dat"
+interface="$(ip -o link show | sed -rn '/^[0-9]+: en/{s/.: ([^:]*):.*/\1/p}')"
+
+echo "interface = $interface"
+echo "data_file = $data_file"
+
+# create data file
+if [ ! -f "$data_file" ]; then
+    touch "$data_file"
+fi
+
+# load ip addresses determined previously
+while IFS='=' read -r key value
+do
+    key=$(echo $key)
+    eval ${key}=\${value}
+done < "$data_file"
+
+echo "previous ipv4 = $ipv4"
+echo "previous ipv6 = $ipv6"
+
+echo "Looking up IPv4 address..."
+current_ipv4=`dig @resolver4.opendns.com myip.opendns.com +short`
+
+echo "Looking up IPv6 address..."
+current_ipv6=`ip -6 addr show dev $interface | awk '/inet6/{print $2}' | awk -F '/' '{print $1}' | grep -v ^::1 | grep -v ^fe80 | head -n 1`
+
+echo "current ipv4 = $current_ipv4"
+echo "current ipv6 = $current_ipv6"
+
+# check if IP addresses have changed
+if [ "$ipv4" != "$current_ipv4" ] || [ "$ipv6" != "$current_ipv6" ]; then
+	echo "IP address has changed, updating..."
+
+	echo "previous ipv4 = $ipv4"
+	echo "previous ipv6 = $ipv6"
+	echo "current ipv4 = $current_ipv4"
+	echo "current ipv6 = $current_ipv6"
+
+	# send http request to update dynamic dns
+	request_url="https://www.duckdns.org/update?domains=$domains&token=$token&ip=$current_ipv4&ipv6=$current_ipv6&verbose=true"
+	echo "HTTP request URL: $request_url"
+
+	curl "$request_url"
+	echo ""
+
+	echo "Updating WireGuard config..."
+	/etc/wireguard/write_wireguard_postup_postdown.sh $current_ipv4
+	echo ""
+
+	# update data file
+	echo "ipv4=$current_ipv4" > "$data_file"
+	echo "ipv6=$current_ipv6" >> "$data_file"
+fi
+
+echo '### ip-address-update end ###'
