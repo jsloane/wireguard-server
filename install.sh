@@ -168,8 +168,7 @@ iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_POR
 
 EOT
 
-parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
-cp $parent_path/scripts/write_wireguard_postup_postdown.sh /etc/wireguard/write_wireguard_postup_postdown.sh
+cp $SCRIPT_DIR/wireguard-server/scripts/write_wireguard_postup_postdown.sh /etc/wireguard/write_wireguard_postup_postdown.sh
 chmod ugo+x /etc/wireguard/write_wireguard_postup_postdown.sh
 /etc/wireguard/write_wireguard_postup_postdown.sh $INTERNET_IP
 
