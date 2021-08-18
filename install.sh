@@ -96,7 +96,7 @@ if ! [ -x "$(command -v wg)" ]; then
 	# accept all incoming traffic # TODO avoid removing oracle iptables rules
 	if [ ! -f "$SCRIPT_DIR/rules.v4.backup" ]; then
 		echo "Backing up /etc/iptables/rules.v4..."
-		cp /etc/iptables/rules.v4 $SCRIPT_DIR/rules.v4.backup
+		cp /etc/iptables/rules.v4 ~/rules.v4.backup
 	fi
 	echo "Reconfiguring firewall..."
 	iptables --flush
