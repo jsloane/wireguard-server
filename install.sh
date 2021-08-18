@@ -96,6 +96,7 @@ if ! [ -x "$(command -v wg)" ]; then
 	# accept all incoming traffic # TODO avoid removing oracle iptables rules
 	if [ ! -f "~/rules.v4.backup" ]; then
 		echo "Backing up /etc/iptables/rules.v4..."
+		# note this copies to root user, should copy to sudo user
 		cp /etc/iptables/rules.v4 ~/rules.v4.backup
 	fi
 	echo "Reconfiguring firewall..."
