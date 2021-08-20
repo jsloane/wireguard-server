@@ -56,7 +56,7 @@ if [ "$ipv4" != "$current_ipv4" ] || [ "$ipv6" != "$current_ipv6" ]; then
 	echo ""
 
 	echo "Updating WireGuard config..."
-	/etc/wireguard/write_wireguard_postup_postdown.sh $current_ipv4
+	/etc/wireguard/write_wireguard_postup_postdown.sh $current_ipv4 $current_ipv6
 	echo ""
 
 	# update data file

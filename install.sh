@@ -1,18 +1,22 @@
 #!/bin/bash
 
 ### Ubuntu client setup
+# <packet forwarding as required - refer to commands below>
 # sudo apt install wireguard
 # sudo nano /etc/wireguard/wg0.conf
 # sudo systemctl enable wg-quick@wg0.service
 # sudo systemctl start wg-quick@wg0.service
 
+
 ### testing network connectivity
 ## on destination server:
 # nc -lu udpport
 # nc -l tcpport
+# nc -6lu udpport
 ## on external client:
 # echo Test message | nc -4u -w1 hostname udpport
 # echo Test message | nc -4 -w1 hostname tcpport
+# echo Test message | nc -6u -w1 ipv6-hostname/ip tcpport
 
 # Reference https://reposhub.com/python/security/mochman-Bypass_CGNAT.html
 # Note Oracle Cloud firewall documentation https://docs.oracle.com/en-us/iaas/Content/Compute/References/bestpracticescompute.htm
@@ -59,7 +63,6 @@ WG_SERVER_HOSTNAME="$3"
 WG_SERVER_PORT="$4"
 PORT_FORWARDING_DESTINATIONS="$5"
 SSHD_PORT=22
-WG_CLIENT_IP=10.200.200.2
 INTERNET_INF=$(ip -o -4 route show to default | awk '{print $5}')
 
 echo ""
@@ -71,7 +74,6 @@ echo "INTERNET_INF =                 $INTERNET_INF"
 echo "SSHD_PORT =                    $SSHD_PORT"
 echo "WG_SERVER_HOSTNAME =           $WG_SERVER_HOSTNAME"
 echo "WG_SERVER_PORT =               $WG_SERVER_PORT"
-echo "WG_CLIENT_IP =                 $WG_CLIENT_IP"
 echo "PORT_FORWARDING_DESTINATIONS = $PORT_FORWARDING_DESTINATIONS"
 echo ""
 
@@ -112,12 +114,19 @@ if ! [ -x "$(command -v wg)" ]; then
 	echo "Enabling packet forwarding..."
 	tee -a /etc/sysctl.conf > /dev/null <<EOT
 net.ipv4.ip_forward=1
+net.ipv6.conf.default.forwarding=1
 net.ipv6.conf.all.forwarding=1
+net.ipv6.conf.all.proxy_ndp=1
+net.ipv6.conf.all.accept_ra=1
 EOT
 	sysctl -w net.ipv4.ip_forward=1
+	sysctl -w net.ipv6.conf.default.forwarding=1
 	sysctl -w net.ipv6.conf.all.forwarding=1
+	sysctl -w net.ipv6.conf.all.proxy_ndp=1
+	sysctl -w net.ipv6.conf.all.accept_ra=1
 	/etc/init.d/procps restart
 fi
+
 
 # stop if already installed and running
 if systemctl is-active --quiet wg-quick@wg0.service; then
@@ -125,8 +134,10 @@ if systemctl is-active --quiet wg-quick@wg0.service; then
 	systemctl stop wg-quick@wg0.service
 fi
 
-INTERNET_IP=`dig @resolver4.opendns.com myip.opendns.com +short`
-echo "INTERNET_IP =                  $INTERNET_IP"
+INTERNET_IPV4=`dig @resolver4.opendns.com myip.opendns.com +short`
+echo "INTERNET_IPV4 =                $INTERNET_IPV4"
+INTERNET_IPV6=`ip -6 addr show dev $INTERNET_INF | awk '/inet6/{print $2}' | awk -F '/' '{print $1}' | grep -v ^::1 | grep -v ^fe80 | head -n 1`
+echo "INTERNET_IPV6 =                $INTERNET_IPV6"
 
 if [ ! -f "/etc/wireguard/server_public_key" ]; then
     echo "Generating server keys..."
@@ -148,9 +159,12 @@ iptables -A FORWARD -o \$1 -j ACCEPT
 iptables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
-iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP
-iptables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ip
-iptables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $WG_CLIENT_IP
+iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
+#ip6tables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1115::2
+iptables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
+#ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
+iptables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination 10.200.200.2
+#ip6tables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1115::2
 
 EOT
 
@@ -163,15 +177,19 @@ iptables -D FORWARD -o \$1 -j ACCEPT
 iptables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
-iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $WG_CLIENT_IP
-iptables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ip
-iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $WG_CLIENT_IP;
+iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
+#ip6tables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1115::2
+iptables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
+#ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
+iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination 10.200.200.2
+#ip6tables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1115::2
 
 EOT
 
 cp $SCRIPT_DIR/scripts/write_wireguard_postup_postdown.sh /etc/wireguard/write_wireguard_postup_postdown.sh
 chmod ugo+x /etc/wireguard/write_wireguard_postup_postdown.sh
-/etc/wireguard/write_wireguard_postup_postdown.sh $INTERNET_IP
+/etc/wireguard/write_wireguard_postup_postdown.sh $INTERNET_IPV4
+#/etc/wireguard/write_wireguard_postup_postdown.sh $INTERNET_IPV4 $INTERNET_IPV6
 
 # create server config file
 bash -c 'umask 077; touch /etc/wireguard/wg0.conf'
@@ -180,6 +198,7 @@ bash -c 'umask 077; touch /etc/wireguard/wg0.conf'
 tee /etc/wireguard/wg0.conf > /dev/null <<EOT
 [Interface]
 Address = 10.200.200.1/24
+#, fd00:7::1/48
 SaveConfig = true
 PrivateKey = server_private_key
 ListenPort = $WG_SERVER_PORT
@@ -190,7 +209,8 @@ PostDown = /etc/wireguard/post-down.sh "%i"
 
 [Peer]
 PublicKey = client_01_public_key
-AllowedIPs = $WG_CLIENT_IP/32
+AllowedIPs = 10.200.200.2/32
+#, fd86:ea04:1115::2/128
 EOT
 
 # write server private key to config file
@@ -224,6 +244,7 @@ bash -c 'umask 077; touch /etc/wireguard/wg0-client-01.conf'
 tee /etc/wireguard/wg0-client-01.conf > /dev/null <<EOT
 [Interface]
 Address = 10.200.200.2/32
+#, fd86:ea04:1115::2/128
 PrivateKey = client_01_private_key
 DNS = 1.1.1.1, 1.0.0.1
 
@@ -234,6 +255,7 @@ $CLIENT_POSTUPDOWN
 PublicKey = server_public_key
 # block untunneled traffic
 AllowedIPs = 0.0.0.0/0
+#, ::/0
 # allow untunneled traffic
 #AllowedIPs = 0.0.0.0/1, 128.0.0.0/1
 Endpoint = $WG_SERVER_HOSTNAME:$WG_SERVER_PORT
