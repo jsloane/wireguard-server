@@ -21,7 +21,7 @@
 # Display usage
 display_usage() {
 	cat <<EOF
-Usage: $0 DDNS_TOKEN DDNS_DOMAINS WG_SERVER_HOSTNAME WG_SERVER_PORT PORT_FORWARDING_DESTINATIONS
+Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS] [WG_SERVER_HOSTNAME] [WG_SERVER_PORT] [PORT_FORWARDING_DESTINATIONS]
 
 -h| --help                         This script is used to install, configure and run a WireGuard server with port forwarding to the client.
                                    Re-running this script will replace previous configuration.
