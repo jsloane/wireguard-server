@@ -155,8 +155,11 @@ tee /etc/wireguard/template-post-up.sh > /dev/null <<EOT
 
 # Generic traffic
 iptables -A FORWARD -i \$1 -j ACCEPT
+#ip6tables -A FORWARD -i \$1 -j ACCEPT
 iptables -A FORWARD -o \$1 -j ACCEPT
+#ip6tables -A FORWARD -o \$1 -j ACCEPT
 iptables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
+#ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
 iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
@@ -173,8 +176,11 @@ tee /etc/wireguard/template-post-down.sh > /dev/null <<EOT
 
 # Generic traffic
 iptables -D FORWARD -i \$1 -j ACCEPT
+#ip6tables -D FORWARD -i \$1 -j ACCEPT
 iptables -D FORWARD -o \$1 -j ACCEPT
+#ip6tables -D FORWARD -o \$1 -j ACCEPT
 iptables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
+#ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
 iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
@@ -197,8 +203,7 @@ bash -c 'umask 077; touch /etc/wireguard/wg0.conf'
 # write server details to server config file
 tee /etc/wireguard/wg0.conf > /dev/null <<EOT
 [Interface]
-Address = 10.200.200.1/24
-#, fd00:7::1/48
+Address = 10.200.200.1/24, fd00:7::1/48
 SaveConfig = true
 PrivateKey = server_private_key
 ListenPort = $WG_SERVER_PORT
@@ -209,8 +214,7 @@ PostDown = /etc/wireguard/post-down.sh "%i"
 
 [Peer]
 PublicKey = client_01_public_key
-AllowedIPs = 10.200.200.2/32
-#, fd86:ea04:1115::2/128
+AllowedIPs = 10.200.200.2/32, fd86:ea04:1115::2/128
 EOT
 
 # write server private key to config file
@@ -243,8 +247,7 @@ bash -c 'umask 077; touch /etc/wireguard/wg0-client-01.conf'
 # write client config file
 tee /etc/wireguard/wg0-client-01.conf > /dev/null <<EOT
 [Interface]
-Address = 10.200.200.2/32
-#, fd86:ea04:1115::2/128
+Address = 10.200.200.2/32, fd86:ea04:1115::2/128
 PrivateKey = client_01_private_key
 DNS = 1.1.1.1, 1.0.0.1
 
@@ -254,8 +257,7 @@ $CLIENT_POSTUPDOWN
 [Peer]
 PublicKey = server_public_key
 # block untunneled traffic
-AllowedIPs = 0.0.0.0/0
-#, ::/0
+AllowedIPs = 0.0.0.0/0, ::/0
 # allow untunneled traffic
 #AllowedIPs = 0.0.0.0/1, 128.0.0.0/1
 Endpoint = $WG_SERVER_HOSTNAME:$WG_SERVER_PORT
