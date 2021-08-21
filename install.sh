@@ -152,11 +152,11 @@ tee /etc/wireguard/template-post-up.sh > /dev/null <<EOT
 
 # Generic traffic
 iptables -A FORWARD -i \$1 -j ACCEPT
-ip6tables -A FORWARD -i \$1 -j ACCEPT
 iptables -A FORWARD -o \$1 -j ACCEPT
-ip6tables -A FORWARD -o \$1 -j ACCEPT
 iptables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
-ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
+ip6tables -A FORWARD -i \$1 -j ACCEPT
+ip6tables -A FORWARD -o \$1 -j ACCEPT
+#ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
 iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
@@ -173,11 +173,11 @@ tee /etc/wireguard/template-post-down.sh > /dev/null <<EOT
 
 # Generic traffic
 iptables -D FORWARD -i \$1 -j ACCEPT
-ip6tables -D FORWARD -i \$1 -j ACCEPT
 iptables -D FORWARD -o \$1 -j ACCEPT
-ip6tables -D FORWARD -o \$1 -j ACCEPT
 iptables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
-ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
+ip6tables -D FORWARD -i \$1 -j ACCEPT
+ip6tables -D FORWARD -o \$1 -j ACCEPT
+#ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
 iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
