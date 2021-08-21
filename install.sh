@@ -50,6 +50,7 @@ if [[ "$EUID" -ne 0 ]]; then
 	exit 1
 fi
 
+set -e # exit when any command fails
 
 echo
 echo "###################################"
@@ -111,19 +112,15 @@ if ! [ -x "$(command -v wg)" ]; then
 	apt update
 	apt install -y wireguard
 
+	# TODO install unbound and use for DNS...
+
 	echo "Enabling packet forwarding..."
 	tee -a /etc/sysctl.conf > /dev/null <<EOT
 net.ipv4.ip_forward=1
-net.ipv6.conf.default.forwarding=1
 net.ipv6.conf.all.forwarding=1
-net.ipv6.conf.all.proxy_ndp=1
-net.ipv6.conf.all.accept_ra=1
 EOT
 	sysctl -w net.ipv4.ip_forward=1
-	sysctl -w net.ipv6.conf.default.forwarding=1
 	sysctl -w net.ipv6.conf.all.forwarding=1
-	sysctl -w net.ipv6.conf.all.proxy_ndp=1
-	sysctl -w net.ipv6.conf.all.accept_ra=1
 	/etc/init.d/procps restart
 fi
 
@@ -155,19 +152,19 @@ tee /etc/wireguard/template-post-up.sh > /dev/null <<EOT
 
 # Generic traffic
 iptables -A FORWARD -i \$1 -j ACCEPT
-#ip6tables -A FORWARD -i \$1 -j ACCEPT
+ip6tables -A FORWARD -i \$1 -j ACCEPT
 iptables -A FORWARD -o \$1 -j ACCEPT
-#ip6tables -A FORWARD -o \$1 -j ACCEPT
+ip6tables -A FORWARD -o \$1 -j ACCEPT
 iptables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
-#ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
+ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
 iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1115::2
+#ip6tables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1111::2
 iptables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
 #ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
 iptables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1115::2
+#ip6tables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1111::2
 
 EOT
 
@@ -176,26 +173,25 @@ tee /etc/wireguard/template-post-down.sh > /dev/null <<EOT
 
 # Generic traffic
 iptables -D FORWARD -i \$1 -j ACCEPT
-#ip6tables -D FORWARD -i \$1 -j ACCEPT
+ip6tables -D FORWARD -i \$1 -j ACCEPT
 iptables -D FORWARD -o \$1 -j ACCEPT
-#ip6tables -D FORWARD -o \$1 -j ACCEPT
+ip6tables -D FORWARD -o \$1 -j ACCEPT
 iptables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
-#ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
+ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
 iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1115::2
+#ip6tables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1111::2
 iptables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
 #ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
 iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1115::2
+#ip6tables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1111::2
 
 EOT
 
 cp $SCRIPT_DIR/scripts/write_wireguard_postup_postdown.sh /etc/wireguard/write_wireguard_postup_postdown.sh
 chmod ugo+x /etc/wireguard/write_wireguard_postup_postdown.sh
-/etc/wireguard/write_wireguard_postup_postdown.sh $INTERNET_IPV4
-#/etc/wireguard/write_wireguard_postup_postdown.sh $INTERNET_IPV4 $INTERNET_IPV6
+/etc/wireguard/write_wireguard_postup_postdown.sh $INTERNET_IPV4 $INTERNET_IPV6
 
 # create server config file
 bash -c 'umask 077; touch /etc/wireguard/wg0.conf'
@@ -203,7 +199,8 @@ bash -c 'umask 077; touch /etc/wireguard/wg0.conf'
 # write server details to server config file
 tee /etc/wireguard/wg0.conf > /dev/null <<EOT
 [Interface]
-Address = 10.200.200.1/24, fd00:7::1/48
+Address = 10.200.200.1/24
+Address = fd86:ea04:1111::1/64
 SaveConfig = true
 PrivateKey = server_private_key
 ListenPort = $WG_SERVER_PORT
@@ -214,7 +211,7 @@ PostDown = /etc/wireguard/post-down.sh "%i"
 
 [Peer]
 PublicKey = client_01_public_key
-AllowedIPs = 10.200.200.2/32, fd86:ea04:1115::2/128
+AllowedIPs = 10.200.200.2/32, fd86:ea04:1111::2/128
 EOT
 
 # write server private key to config file
@@ -247,9 +244,11 @@ bash -c 'umask 077; touch /etc/wireguard/wg0-client-01.conf'
 # write client config file
 tee /etc/wireguard/wg0-client-01.conf > /dev/null <<EOT
 [Interface]
-Address = 10.200.200.2/32, fd86:ea04:1115::2/128
+Address = 10.200.200.2/32
+Address = fd86:ea04:1111::2/128
 PrivateKey = client_01_private_key
-DNS = 1.1.1.1, 1.0.0.1
+DNS = 1.1.1.1, 1.0.0.1, fd86:ea04:1111::1, 2606:4700:4700::1111, 2606:4700:4700::1001
+#DNS = 10.200.200.1, fd86:ea04:1111::1
 
 # if required, redirect port to another host. Packet forwarding will need to be enabled on client.
 $CLIENT_POSTUPDOWN
