@@ -247,7 +247,7 @@ tee /etc/wireguard/wg0-client-01.conf > /dev/null <<EOT
 Address = 10.200.200.2/32
 Address = fd86:ea04:1111::2/128
 PrivateKey = client_01_private_key
-DNS = 1.1.1.1, 1.0.0.1, fd86:ea04:1111::1, 2606:4700:4700::1111, 2606:4700:4700::1001
+DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111, 2606:4700:4700::1001
 #DNS = 10.200.200.1, fd86:ea04:1111::1
 
 # if required, redirect port to another host. Packet forwarding will need to be enabled on client.
