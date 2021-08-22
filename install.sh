@@ -110,7 +110,7 @@ if ! [ -x "$(command -v wg)" ]; then
 
 	echo "WireGuard not found, updating packages and installing..."
 	apt update
-	apt install -y wireguard
+	apt install -y wireguard net-tools
 
 	# TODO install unbound and use for DNS...
 
