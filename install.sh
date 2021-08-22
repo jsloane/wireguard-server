@@ -12,11 +12,11 @@
 ## on destination server:
 # nc -lu udpport
 # nc -l tcpport
-# nc -6lu udpport
+# nc -6l tcpport
 ## on external client:
 # echo Test message | nc -4u -w1 hostname udpport
 # echo Test message | nc -4 -w1 hostname tcpport
-# echo Test message | nc -6u -w1 ipv6-hostname/ip tcpport
+# echo Test message | nc -6 -w1 ipv6-hostname/ip tcpport
 # ping google.com
 # ping -6 google.com
 
