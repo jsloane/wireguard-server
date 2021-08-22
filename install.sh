@@ -19,6 +19,8 @@
 # echo Test message | nc -6 -w1 ipv6-hostname/ip tcpport
 # ping google.com
 # ping -6 google.com
+# curl ifconfig.me/ip
+# curl -s ipv6.icanhazip.com | xargs echo -n
 
 # Reference https://reposhub.com/python/security/mochman-Bypass_CGNAT.html
 # Note Oracle Cloud firewall documentation https://docs.oracle.com/en-us/iaas/Content/Compute/References/bestpracticescompute.htm
