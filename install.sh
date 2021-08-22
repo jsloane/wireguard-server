@@ -37,7 +37,7 @@ DDNS_DOMAINS                       DuckDNS domains
 WG_SERVER_HOSTNAME                 The hostname of the WireGuard Server
 WG_SERVER_PORT                     The port of the WireGuard Server
 PORT_FORWARDING_DESTINATIONS       The protocol and ports you wish to forward to the WireGuard Client, in format port/protocol/IP.
-                                   Multiple entries are supported when separated by a comma.
+                                   Multiple entries are supported when separated by a comma. IPv4 only.
                                    Eg: 80/tcp/192.168.1.10
 
 This script must be run with super-user privileges.
@@ -257,8 +257,8 @@ $CLIENT_POSTUPDOWN
 
 [Peer]
 PublicKey = server_public_key
-# block untunneled traffic
-AllowedIPs = 0.0.0.0/0, ::/0
+AllowedIPs = 0.0.0.0/0 # Send all IPv4 through VPN. Remove this if not required.
+AllowedIPs = ::/0 # Send all IPv6 through VPN. Remove this if not required.
 # allow untunneled traffic
 #AllowedIPs = 0.0.0.0/1, 128.0.0.0/1
 Endpoint = $WG_SERVER_HOSTNAME:$WG_SERVER_PORT
