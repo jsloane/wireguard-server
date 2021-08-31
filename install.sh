@@ -260,7 +260,7 @@ $CLIENT_POSTUPDOWN
 [Peer]
 PublicKey = server_public_key
 AllowedIPs = 0.0.0.0/0 # Send all IPv4 through VPN. Remove this if not required.
-AllowedIPs = ::/0 # Send all IPv6 through VPN. Remove this if not required.
+#AllowedIPs = ::/0 # Send all IPv6 through VPN. Remove this if not required.
 # allow untunneled traffic
 #AllowedIPs = 0.0.0.0/1, 128.0.0.0/1
 Endpoint = $WG_SERVER_HOSTNAME:$WG_SERVER_PORT
