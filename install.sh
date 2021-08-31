@@ -29,7 +29,7 @@
 # Display usage
 display_usage() {
 	cat <<EOF
-Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS] [WG_SERVER_HOSTNAME] [WG_SERVER_PORT] [PORT_FORWARDING_DESTINATIONS]
+Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS] [WG_SERVER_HOSTNAME] [WG_SERVER_PORT] [PORT_FORWARDING_DESTINATIONS] [ADDITIONAL_CLIENTS]
 
 -h| --help                         This script is used to install, configure and run a WireGuard server with port forwarding to the client.
                                    Re-running this script will replace previous configuration.
@@ -41,6 +41,7 @@ WG_SERVER_PORT                     The port of the WireGuard Server
 PORT_FORWARDING_DESTINATIONS       The protocol and ports you wish to forward to the WireGuard Client, in format port/protocol/IP.
                                    Multiple entries are supported when separated by a comma. IPv4 only.
                                    Eg: 80/tcp/192.168.1.10
+ADDITIONAL_CLIENTS                 Number of additional clients to setup, that do no have port forwarding.
 
 This script must be run with super-user privileges.
 EOF
@@ -67,6 +68,7 @@ DDNS_DOMAINS="$2"
 WG_SERVER_HOSTNAME="$3"
 WG_SERVER_PORT="$4"
 PORT_FORWARDING_DESTINATIONS="$5"
+ADDITIONAL_CLIENTS="$6"
 SSHD_PORT=22
 INTERNET_INF=$(ip -o -4 route show to default | awk '{print $5}')
 
@@ -80,6 +82,7 @@ echo "SSHD_PORT =                    $SSHD_PORT"
 echo "WG_SERVER_HOSTNAME =           $WG_SERVER_HOSTNAME"
 echo "WG_SERVER_PORT =               $WG_SERVER_PORT"
 echo "PORT_FORWARDING_DESTINATIONS = $PORT_FORWARDING_DESTINATIONS"
+echo "ADDITIONAL_CLIENTS  =          $ADDITIONAL_CLIENTS"
 echo ""
 
 
@@ -224,7 +227,6 @@ sed -i "s#server_private_key#$(cat /etc/wireguard/server_private_key)#" /etc/wir
 # write client public key to config file
 sed -i "s#client_01_public_key#$(cat /etc/wireguard/client_01_public_key)#" /etc/wireguard/wg0.conf
 
-
 ### WireGuard Client setup
 
 # Generate client PostUp and PostDown commands for port forwarding destinations
@@ -249,9 +251,10 @@ bash -c 'umask 077; touch /etc/wireguard/wg0-client-01.conf'
 tee /etc/wireguard/wg0-client-01.conf > /dev/null <<EOT
 [Interface]
 Address = 10.200.200.2/32
-Address = fd86:ea04:1111::2/128
+#Address = fd86:ea04:1111::2/128 # Enable/disable IPv6 properties as required. Disabled by default.
 PrivateKey = client_01_private_key
-DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111, 2606:4700:4700::1001
+DNS = 1.1.1.1, 1.0.0.1
+#DNS = 2606:4700:4700::1111, 2606:4700:4700::1001
 #DNS = 10.200.200.1, fd86:ea04:1111::1
 
 # if required, redirect port to another host. Packet forwarding will need to be enabled on client.
@@ -261,8 +264,8 @@ $CLIENT_POSTUPDOWN
 PublicKey = server_public_key
 AllowedIPs = 0.0.0.0/0 # Send all IPv4 through VPN. Remove this if not required.
 #AllowedIPs = ::/0 # Send all IPv6 through VPN. Remove this if not required.
-# allow untunneled traffic
-#AllowedIPs = 0.0.0.0/1, 128.0.0.0/1
+#AllowedIPs = 0.0.0.0/1, 128.0.0.0/1 # Allow untunneled/local IPv4 traffic
+#AllowedIPs = ::/1, 8000::/1 # Allow untunneled/local IPv6 traffic
 Endpoint = $WG_SERVER_HOSTNAME:$WG_SERVER_PORT
 PersistentKeepalive = 25
 EOT
@@ -272,6 +275,67 @@ sed -i "s#server_public_key#$(cat /etc/wireguard/server_public_key)#" /etc/wireg
 
 # write client private key to client config file
 sed -i "s#client_01_private_key#$(cat /etc/wireguard/client_01_private_key)#" /etc/wireguard/wg0-client-01.conf
+
+echo "Generating config for additional $ADDITIONAL_CLIENTS client(s)"
+clientnumber=1
+for i in $(seq $ADDITIONAL_CLIENTS); do
+	((clientnumber++))
+	((nextipnumber=clientnumber+1))
+    echo "Generating configuration for client $clientnumber..."
+
+	if [ ! -f '/etc/wireguard/client_'"$clientnumber"'_public_key' ]; then
+		echo "Generating client keys..."
+		bash -c 'umask 077; wg genkey | tee /etc/wireguard/client_'"$clientnumber"'_private_key | wg pubkey > /etc/wireguard/client_'"$clientnumber"'_public_key'
+	fi
+
+	# create client config file
+	bash -c 'umask 077; touch /etc/wireguard/wg0-client-'"$clientnumber"'.conf'
+
+	# write client config file
+	tee /etc/wireguard/wg0-client-$clientnumber.conf > /dev/null <<EOT
+[Interface]
+Address = 10.200.200.client_ipv4/32
+Address = fd86:ea04:1111::client_ipv6/128 # Enable/disable IPv6 properties as required.
+PrivateKey = client_private_key
+DNS = 1.1.1.1, 1.0.0.1
+DNS = 2606:4700:4700::1111, 2606:4700:4700::1001
+#DNS = 10.200.200.1, fd86:ea04:1111::1
+
+[Peer]
+PublicKey = server_public_key
+#AllowedIPs = 0.0.0.0/0 # Send all IPv4 through VPN. Remove this if not required.
+#AllowedIPs = ::/0 # Send all IPv6 through VPN. Remove this if not required.
+AllowedIPs = 0.0.0.0/1, 128.0.0.0/1 # Allow untunneled/local IPv4 traffic
+AllowedIPs = ::/1, 8000::/1 # Allow untunneled/local IPv6 traffic
+Endpoint = $WG_SERVER_HOSTNAME:$WG_SERVER_PORT
+PersistentKeepalive = 25
+EOT
+
+	# set client IP address in client config file
+	sed -i "s#client_ipv4#$nextipnumber#" /etc/wireguard/wg0-client-$clientnumber.conf
+	sed -i "s#client_ipv6#$nextipnumber#" /etc/wireguard/wg0-client-$clientnumber.conf
+
+	# write server public key to client config file
+	sed -i "s#server_public_key#$(cat /etc/wireguard/server_public_key)#" /etc/wireguard/wg0-client-$clientnumber.conf
+
+	# write client private key to client config file
+	sed -i "s#client_private_key#$(cat /etc/wireguard/client_""$clientnumber""_private_key)#" /etc/wireguard/wg0-client-$clientnumber.conf
+
+	# write additioanl clients to server config file
+tee -a /etc/wireguard/wg0.conf > /dev/null <<EOT
+
+[Peer]
+PublicKey = client_public_key
+AllowedIPs = 10.200.200.client_ipv4/32, fd86:ea04:1111::client_ipv6/128
+EOT
+
+	# write client public key to server config file
+	sed -i "s#client_public_key#$(cat /etc/wireguard/client_""$clientnumber""_public_key)#" /etc/wireguard/wg0.conf
+
+	# set client IP address in server config file
+	sed -i "s#client_ipv4#$nextipnumber#" /etc/wireguard/wg0.conf
+	sed -i "s#client_ipv6#$nextipnumber#" /etc/wireguard/wg0.conf
+done
 
 
 ### setup server service
@@ -292,4 +356,11 @@ cat /etc/wireguard/wg0-client-01.conf
 echo "##################################"
 echo "###  Client configuration end  ###"
 echo "##################################"
+echo ""
+echo "Additional clients:"
+clientnumber=1
+for i in $(seq $ADDITIONAL_CLIENTS); do
+	((clientnumber++))
+	echo "sudo cat /etc/wireguard/wg0-client-$clientnumber.conf"
+done
 echo ""
