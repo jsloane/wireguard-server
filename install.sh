@@ -369,6 +369,8 @@ echo "Additional clients:"
 clientnumber=1
 for i in $(seq $ADDITIONAL_CLIENTS); do
 	((clientnumber++))
-	echo "sudo cat /etc/wireguard/wg0-client-$clientnumber.conf"
+	echo " > Client $clientnumber"
+	echo "      sudo cat /etc/wireguard/wg0-client-$clientnumber.conf"
+	echo "      sudo bash -c 'qrencode -t ansiutf8 < /etc/wireguard/wg0-client-""$clientnumber"".conf'"
 done
 echo ""
