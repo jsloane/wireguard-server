@@ -29,7 +29,7 @@
 # Display usage
 display_usage() {
 	cat <<EOF
-Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS] [WG_SERVER_HOSTNAME] [WG_SERVER_PORT] [PORT_FORWARDING_DESTINATIONS] [ADDITIONAL_CLIENTS]
+Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS] [WG_SERVER_HOSTNAME] [WG_SERVER_PORT] [IPV4_3_FIELDS] [IPV6_HEXTET] [PORT_FORWARDING_DESTINATIONS] [ADDITIONAL_CLIENTS]
 
 -h| --help                         This script is used to install, configure and run a WireGuard server with port forwarding to the client.
                                    Re-running this script will replace previous configuration.
@@ -38,10 +38,15 @@ DDNS_TOKEN                         DuckDNS token
 DDNS_DOMAINS                       DuckDNS domains
 WG_SERVER_HOSTNAME                 The hostname of the WireGuard Server
 WG_SERVER_PORT                     The port of the WireGuard Server
+IPV4_3_FIELDS                      The first 3 fields of the IPv4 network address (eg 10.10.10)
+IPV6_HEXTET                        The 3rd hextet of the IPv6 network address (1111)
 PORT_FORWARDING_DESTINATIONS       The protocol and ports you wish to forward to the WireGuard Client, in format port/protocol/IP.
                                    Multiple entries are supported when separated by a comma. IPv4 only.
                                    Eg: 80/tcp/192.168.1.10
-ADDITIONAL_CLIENTS                 Number of additional clients to setup, that do no have port forwarding.
+ADDITIONAL_CLIENTS                 Number of additional clients to setup, that do not have port forwarding.
+
+Example usage:
+sudo ~/wireguard-server/install.sh duckdns-token duckdns-domain wgserver-hostname.com 51820 10.10.10 1111 80/tcp/192.168.1.10 2
 
 This script must be run with super-user privileges.
 EOF
@@ -67,8 +72,10 @@ DDNS_TOKEN="$1"
 DDNS_DOMAINS="$2"
 WG_SERVER_HOSTNAME="$3"
 WG_SERVER_PORT="$4"
-PORT_FORWARDING_DESTINATIONS="$5"
-ADDITIONAL_CLIENTS="$6"
+IPV4_3_FIELDS="$5"
+IPV6_HEXTET="$6"
+PORT_FORWARDING_DESTINATIONS="$7"
+ADDITIONAL_CLIENTS="$8"
 SSHD_PORT=22
 INTERNET_INF=$(ip -o -4 route show to default | awk '{print $5}')
 
@@ -166,12 +173,12 @@ ip6tables -A FORWARD -o \$1 -j ACCEPT
 #ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
-iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1111::2
+iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $IPV4_3_FIELDS.2
+#ip6tables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
 iptables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
 #ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
-iptables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1111::2
+iptables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $IPV4_3_FIELDS.2
+#ip6tables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
 
 EOT
 
@@ -187,12 +194,12 @@ ip6tables -D FORWARD -o \$1 -j ACCEPT
 #ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
-iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:1111::2
+iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $IPV4_3_FIELDS.2
+#ip6tables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
 iptables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
 #ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
-iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination 10.200.200.2
-#ip6tables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:1111::2
+iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $IPV4_3_FIELDS.2
+#ip6tables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
 
 EOT
 
@@ -206,8 +213,8 @@ bash -c 'umask 077; touch /etc/wireguard/wg0.conf'
 # write server details to server config file
 tee /etc/wireguard/wg0.conf > /dev/null <<EOT
 [Interface]
-Address = 10.200.200.1/24
-Address = fd86:ea04:1111::1/64
+Address = $IPV4_3_FIELDS.1/24
+Address = fd86:ea04:$IPV6_HEXTET::1/64
 SaveConfig = true
 PrivateKey = server_private_key
 ListenPort = $WG_SERVER_PORT
@@ -218,7 +225,7 @@ PostDown = /etc/wireguard/post-down.sh "%i"
 
 [Peer]
 PublicKey = client_01_public_key
-AllowedIPs = 10.200.200.2/32, fd86:ea04:1111::2/128
+AllowedIPs = $IPV4_3_FIELDS.2/32, fd86:ea04:$IPV6_HEXTET::2/128
 EOT
 
 # write server private key to config file
@@ -250,12 +257,12 @@ bash -c 'umask 077; touch /etc/wireguard/wg0-client-01.conf'
 # write client config file
 tee /etc/wireguard/wg0-client-01.conf > /dev/null <<EOT
 [Interface]
-Address = 10.200.200.2/32
-#Address = fd86:ea04:1111::2/128 # Enable/disable IPv6 properties as required. Disabled by default.
+Address = $IPV4_3_FIELDS.2/32
+#Address = fd86:ea04:$IPV6_HEXTET::2/128 # Enable/disable IPv6 properties as required. Disabled by default.
 PrivateKey = client_01_private_key
 DNS = 1.1.1.1, 1.0.0.1
 #DNS = 2606:4700:4700::1111, 2606:4700:4700::1001
-#DNS = 10.200.200.1, fd86:ea04:1111::1
+#DNS = $IPV4_3_FIELDS.1, fd86:ea04:$IPV6_HEXTET::1
 
 # if required, redirect port to another host. Packet forwarding will need to be enabled on client.
 $CLIENT_POSTUPDOWN
@@ -291,22 +298,23 @@ for i in $(seq $ADDITIONAL_CLIENTS); do
 	# create client config file
 	bash -c 'umask 077; touch /etc/wireguard/wg0-client-'"$clientnumber"'.conf'
 
-	# write client config file
+	# write additional client config file
 	tee /etc/wireguard/wg0-client-$clientnumber.conf > /dev/null <<EOT
 [Interface]
-Address = 10.200.200.client_ipv4/32
-Address = fd86:ea04:1111::client_ipv6/128 # Enable/disable IPv6 properties as required.
+Address = $IPV4_3_FIELDS.client_ipv4/32
+Address = fd86:ea04:$IPV6_HEXTET::client_ipv6/128 # Enable/disable IPv6 properties as required.
 PrivateKey = client_private_key
 DNS = 1.1.1.1, 1.0.0.1
 DNS = 2606:4700:4700::1111, 2606:4700:4700::1001
-#DNS = 10.200.200.1, fd86:ea04:1111::1
+#DNS = $IPV4_3_FIELDS.1, fd86:ea04:$IPV6_HEXTET::1
 
 [Peer]
 PublicKey = server_public_key
 #AllowedIPs = 0.0.0.0/0 # Send all IPv4 through VPN. Remove this if not required.
 #AllowedIPs = ::/0 # Send all IPv6 through VPN. Remove this if not required.
-AllowedIPs = 0.0.0.0/1, 128.0.0.0/1 # Allow untunneled/local IPv4 traffic
-AllowedIPs = ::/1, 8000::/1 # Allow untunneled/local IPv6 traffic
+#AllowedIPs = 0.0.0.0/1, 128.0.0.0/1 # Allow untunneled/local IPv4 traffic
+#AllowedIPs = ::/1, 8000::/1 # Allow untunneled/local IPv6 traffic
+AllowedIPs = $IPV4_3_FIELDS.0/24 # Allow only local VPN traffic
 Endpoint = $WG_SERVER_HOSTNAME:$WG_SERVER_PORT
 PersistentKeepalive = 25
 EOT
@@ -326,15 +334,15 @@ tee -a /etc/wireguard/wg0.conf > /dev/null <<EOT
 
 [Peer]
 PublicKey = client_public_key
-AllowedIPs = 10.200.200.client_ipv4/32, fd86:ea04:1111::client_ipv6/128
+AllowedIPs = $IPV4_3_FIELDS.$nextipnumber/32, fd86:ea04:$IPV6_HEXTET::$nextipnumber/128
 EOT
 
 	# write client public key to server config file
 	sed -i "s#client_public_key#$(cat /etc/wireguard/client_""$clientnumber""_public_key)#" /etc/wireguard/wg0.conf
 
 	# set client IP address in server config file
-	sed -i "s#client_ipv4#$nextipnumber#" /etc/wireguard/wg0.conf
-	sed -i "s#client_ipv6#$nextipnumber#" /etc/wireguard/wg0.conf
+	#sed -i "s#client_ipv4#$nextipnumber#" /etc/wireguard/wg0.conf
+	#sed -i "s#client_ipv6#$nextipnumber#" /etc/wireguard/wg0.conf
 done
 
 
