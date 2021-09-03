@@ -21,6 +21,8 @@
 # ping -6 google.com
 # curl ifconfig.me/ip
 # curl -s ipv6.icanhazip.com | xargs echo -n
+# route -n
+# ip route
 
 # Reference https://reposhub.com/python/security/mochman-Bypass_CGNAT.html
 # Note Oracle Cloud firewall documentation https://docs.oracle.com/en-us/iaas/Content/Compute/References/bestpracticescompute.htm
@@ -88,6 +90,8 @@ echo "INTERNET_INF =                 $INTERNET_INF"
 echo "SSHD_PORT =                    $SSHD_PORT"
 echo "WG_SERVER_HOSTNAME =           $WG_SERVER_HOSTNAME"
 echo "WG_SERVER_PORT =               $WG_SERVER_PORT"
+echo "IPV4_3_FIELDS =                $IPV4_3_FIELDS"
+echo "IPV6_HEXTET =                  $IPV6_HEXTET"
 echo "PORT_FORWARDING_DESTINATIONS = $PORT_FORWARDING_DESTINATIONS"
 echo "ADDITIONAL_CLIENTS  =          $ADDITIONAL_CLIENTS"
 echo ""
