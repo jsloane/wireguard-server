@@ -31,7 +31,7 @@
 # Display usage
 display_usage() {
 	cat <<EOF
-Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS] [WG_SERVER_HOSTNAME] [WG_SERVER_PORT] [IPV4_3_FIELDS] [IPV6_HEXTET] [PORT_FORWARDING_DESTINATIONS] [ADDITIONAL_CLIENTS]
+Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS] [WG_SERVER_HOSTNAME] [WG_SERVER_PORT] [IPV4_3_FIELDS] [IPV6_HEXTET] [PORT_FORWARDING_DESTINATIONS] [ADDITIONAL_CLIENTS] [ADDITIONAL_PEERS]
 
 -h| --help                         This script is used to install, configure and run a WireGuard server with port forwarding to the client.
                                    Re-running this script will replace previous configuration.
@@ -45,7 +45,9 @@ IPV6_HEXTET                        The 3rd hextet of the IPv6 network address (1
 PORT_FORWARDING_DESTINATIONS       The protocol and ports you wish to forward to the WireGuard Client, in format port/protocol/IP.
                                    Multiple entries are supported when separated by a comma. IPv4 only.
                                    Eg: 80/tcp/192.168.1.10
-ADDITIONAL_CLIENTS                 Number of additional clients to setup, that do not have port forwarding.
+ADDITIONAL_CLIENTS                 Number of additional clients to generate, that do not have port forwarding.
+ADDITIONAL_PEERS                   Additional peers to include in server configuration. Multiple entries are supported when separated by a comma.
+                                   Eg: PublicKey^AllowedIPs,PublicKey^AllowedIPs
 
 Example usage:
 sudo ~/wireguard-server/install.sh duckdns-token duckdns-domain wgserver-hostname.com 51820 10.10.10 1111 80/tcp/192.168.1.10 2
@@ -78,6 +80,7 @@ IPV4_3_FIELDS="$5"
 IPV6_HEXTET="$6"
 PORT_FORWARDING_DESTINATIONS="$7"
 ADDITIONAL_CLIENTS="$8"
+ADDITIONAL_PEERS="$9"
 SSHD_PORT=22
 INTERNET_INF=$(ip -o -4 route show to default | awk '{print $5}')
 
@@ -94,6 +97,7 @@ echo "IPV4_3_FIELDS =                $IPV4_3_FIELDS"
 echo "IPV6_HEXTET =                  $IPV6_HEXTET"
 echo "PORT_FORWARDING_DESTINATIONS = $PORT_FORWARDING_DESTINATIONS"
 echo "ADDITIONAL_CLIENTS  =          $ADDITIONAL_CLIENTS"
+echo "ADDITIONAL_PEERS  =            $ADDITIONAL_PEERS"
 echo ""
 
 
@@ -334,7 +338,7 @@ EOT
 	sed -i "s#client_private_key#$(cat /etc/wireguard/client_""$clientnumber""_private_key)#" /etc/wireguard/wg0-client-$clientnumber.conf
 
 	# write additioanl clients to server config file
-tee -a /etc/wireguard/wg0.conf > /dev/null <<EOT
+	tee -a /etc/wireguard/wg0.conf > /dev/null <<EOT
 
 [Peer]
 PublicKey = client_public_key
@@ -347,6 +351,23 @@ EOT
 	# set client IP address in server config file
 	#sed -i "s#client_ipv4#$nextipnumber#" /etc/wireguard/wg0.conf
 	#sed -i "s#client_ipv6#$nextipnumber#" /etc/wireguard/wg0.conf
+done
+
+
+for i in $(echo $ADDITIONAL_PEERS | sed "s/,/ /g")
+do
+	echo "Processing config for additional peer..."
+	PUBLICKEY=$(echo $i| cut -d'^' -f 1)
+	ALLOWEDIPS=$(echo $i| cut -d'^' -f 2)
+	if [ ! -z $PUBLICKEY ]; then
+	# write additioanl client to server config file
+	tee -a /etc/wireguard/wg0.conf > /dev/null <<EOT
+
+[Peer]
+PublicKey = $PUBLICKEY
+AllowedIPs = $ALLOWEDIPS
+EOT
+	fi
 done
 
 
