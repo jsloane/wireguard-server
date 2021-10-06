@@ -83,6 +83,7 @@ ADDITIONAL_CLIENTS="$8"
 ADDITIONAL_PEERS="$9"
 SSHD_PORT=22
 INTERNET_INF=$(ip -o -4 route show to default | awk '{print $5}')
+NEWLINE=$'\n'
 
 echo ""
 echo "##### Parameters #####"
@@ -169,24 +170,34 @@ if [ ! -f "/etc/wireguard/client_01_public_key" ]; then
 fi
 
 # create PostUp and PostDown script files
+# TODO populate from PORT_FORWARDING_DESTINATIONS parameter
 tee /etc/wireguard/template-post-up.sh > /dev/null <<EOT
 #!/bin/bash
 
 # Generic traffic
-iptables -A FORWARD -i \$1 -j ACCEPT
-iptables -A FORWARD -o \$1 -j ACCEPT
-iptables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
-ip6tables -A FORWARD -i \$1 -j ACCEPT
-ip6tables -A FORWARD -o \$1 -j ACCEPT
-#ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
+#iptables -A FORWARD -i \$1 -j ACCEPT
+#iptables -A FORWARD -o \$1 -j ACCEPT
+#iptables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
+##ip6tables -A FORWARD -i \$1 -j ACCEPT
+##ip6tables -A FORWARD -o \$1 -j ACCEPT
+##ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
-iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $IPV4_3_FIELDS.2
-#ip6tables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
-iptables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
-#ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
-iptables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $IPV4_3_FIELDS.2
-#ip6tables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
+#iptables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $IPV4_3_FIELDS.2
+#iptables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
+#iptables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $IPV4_3_FIELDS.2
+##ip6tables -t nat -A PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
+##ip6tables -t nat -A POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
+##ip6tables -t nat -A PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
+
+iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1240
+iptables -A FORWARD -i \$1 -j ACCEPT
+iptables -t nat -A POSTROUTING -o $INTERNET_INF -j MASQUERADE
+iptables -A FORWARD -i $INTERNET_INF -o \$1 -p tcp --syn --dport 44158 -m conntrack --ctstate NEW -j ACCEPT
+iptables -A FORWARD -i $INTERNET_INF -o \$1 -p tcp --syn --dport 80 -m conntrack --ctstate NEW -j ACCEPT
+iptables -A FORWARD -i $INTERNET_INF -o \$1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -t nat -A PREROUTING -i $INTERNET_INF -p tcp --dport 44158 -j DNAT --to-destination $IPV4_3_FIELDS.2
+iptables -t nat -A PREROUTING -i $INTERNET_INF -p tcp --dport 80 -j DNAT --to-destination $IPV4_3_FIELDS.2
 
 EOT
 
@@ -194,20 +205,29 @@ tee /etc/wireguard/template-post-down.sh > /dev/null <<EOT
 #!/bin/bash
 
 # Generic traffic
-iptables -D FORWARD -i \$1 -j ACCEPT
-iptables -D FORWARD -o \$1 -j ACCEPT
-iptables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
-ip6tables -D FORWARD -i \$1 -j ACCEPT
-ip6tables -D FORWARD -o \$1 -j ACCEPT
-#ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
+#iptables -D FORWARD -i \$1 -j ACCEPT
+#iptables -D FORWARD -o \$1 -j ACCEPT
+#iptables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
+##ip6tables -D FORWARD -i \$1 -j ACCEPT
+##ip6tables -D FORWARD -o \$1 -j ACCEPT
+##ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
 
 # Forward traffic on all tcp/udp ports except ports used for SSH and WireGuard Server
-iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $IPV4_3_FIELDS.2
-#ip6tables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
-iptables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
-#ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
-iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $IPV4_3_FIELDS.2
-#ip6tables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
+#iptables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination $IPV4_3_FIELDS.2
+#iptables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv4
+#iptables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination $IPV4_3_FIELDS.2
+##ip6tables -t nat -D PREROUTING -p tcp -i $INTERNET_INF '!' --dport 22 -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
+##ip6tables -t nat -D POSTROUTING -o $INTERNET_INF -j SNAT --to-source internet_ipv6
+##ip6tables -t nat -D PREROUTING -p udp -i $INTERNET_INF '!' --dport $WG_SERVER_PORT -j DNAT --to-destination fd86:ea04:$IPV6_HEXTET::2
+
+iptables -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1240
+iptables -D FORWARD -i \$1 -j ACCEPT
+iptables -t nat -D POSTROUTING -o $INTERNET_INF -j MASQUERADE
+iptables -D FORWARD -i $INTERNET_INF -o \$1 -p tcp --syn --dport 44158 -m conntrack --ctstate NEW -j ACCEPT
+iptables -D FORWARD -i $INTERNET_INF -o \$1 -p tcp --syn --dport 80 -m conntrack --ctstate NEW -j ACCEPT
+iptables -D FORWARD -i $INTERNET_INF -o \$1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -t nat -D PREROUTING -i $INTERNET_INF -p tcp --dport 44158 -j DNAT --to-destination $IPV4_3_FIELDS.2
+iptables -t nat -D PREROUTING -i $INTERNET_INF -p tcp --dport 80 -j DNAT --to-destination $IPV4_3_FIELDS.2
 
 EOT
 
@@ -226,6 +246,7 @@ Address = fd86:ea04:$IPV6_HEXTET::1/64
 SaveConfig = true
 PrivateKey = server_private_key
 ListenPort = $WG_SERVER_PORT
+MTU = 1420
 
 # use scripts to manage dynamic external IP address
 PostUp = /etc/wireguard/post-up.sh "%i"
@@ -246,7 +267,6 @@ sed -i "s#client_01_public_key#$(cat /etc/wireguard/client_01_public_key)#" /etc
 
 # Generate client PostUp and PostDown commands for port forwarding destinations
 CLIENT_POSTUPDOWN=""
-NEWLINE=$'\n'
 for i in $(echo $PORT_FORWARDING_DESTINATIONS | sed "s/,/ /g")
 do
 	FORWARD_PORT=$(echo $i| cut -d'/' -f 1)
