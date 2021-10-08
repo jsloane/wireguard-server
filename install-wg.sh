@@ -49,7 +49,7 @@ ADDITIONAL_PEERS                   Additional peers to include in server configu
                                    Eg: PublicKey^AllowedIPs,PublicKey^AllowedIPs
 
 Example usage:
-sudo ~/wireguard-server/install-wg.sh wgserver-hostname.com 51820 10.10.10 1111 80/tcp/192.168.1.10 2
+sudo ./install-wg.sh wgserver-hostname.com 51820 10.10.10 1111 80/tcp/192.168.1.10 2
 
 This script must be run with super-user privileges.
 EOF

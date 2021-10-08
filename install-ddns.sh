@@ -11,7 +11,7 @@ DDNS_TOKEN                         DuckDNS token
 DDNS_DOMAINS                       DuckDNS domains
 
 Example usage:
-sudo ~/wireguard-server/install-ddns.sh duckdns-token duckdns-domain
+sudo ./install-ddns.sh duckdns-token duckdns-domain
 
 This script must be run with super-user privileges.
 EOF
