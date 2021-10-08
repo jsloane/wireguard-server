@@ -1,5 +1,5 @@
 # wireguard-server
-Script to setup a wireguard server with port forwarding.
+Script to setup a wireguard server with port forwarding, for Ubuntu.
 
 ## Install and configuration
 Run `./install-wg.sh` to see usage.
