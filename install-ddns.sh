@@ -3,12 +3,13 @@
 # Display usage
 display_usage() {
 	cat <<EOF
-Usage: $0 [DDNS_TOKEN] [DDNS_DOMAINS]
+Usage: $0 [DDNS_SERVICE] [DDNS_TOKEN] [DDNS_DOMAINS]
 
--h| --help                         This script is used to install and configure duck ddns.
+-h| --help                         This script is used to install and configure ddns. Supported services: DuckDNS, Dynu
 
-DDNS_TOKEN                         DuckDNS token
-DDNS_DOMAINS                       DuckDNS domains
+DDNS_SERVICE                       DuckDNS|Dynu
+DDNS_TOKEN                         DDNS token/password
+DDNS_DOMAINS                       DDNS domains
 
 Example usage:
 sudo ./install-ddns.sh duckdns-token duckdns-domain
@@ -33,12 +34,14 @@ echo "### Running ddns setup script ###"
 echo "#################################"
 
 SCRIPT_DIR=$(dirname $(realpath $0))
-DDNS_TOKEN="$1"
-DDNS_DOMAINS="$2"
+DDNS_SERVICE="$1"
+DDNS_TOKEN="$2"
+DDNS_DOMAINS="$3"
 
 echo ""
 echo "##### Parameters #####"
 echo "SCRIPT_DIR =                   $SCRIPT_DIR"
+echo "DDNS_SERVICE =                 $DDNS_SERVICE"
 echo "DDNS_TOKEN =                   $DDNS_TOKEN"
 echo "DDNS_DOMAINS =                 $DDNS_DOMAINS"
 echo ""
@@ -49,6 +52,7 @@ echo ""
 ###############
 
 cp $SCRIPT_DIR/scripts/ip-address-update /etc/cron.hourly/ip-address-update
+sed -i "s#service_value#$DDNS_SERVICE#" /etc/cron.hourly/ip-address-update
 sed -i "s#token_value#$DDNS_TOKEN#" /etc/cron.hourly/ip-address-update
 sed -i "s#domains_value#$DDNS_DOMAINS#" /etc/cron.hourly/ip-address-update
 chmod ugo+x /etc/cron.hourly/ip-address-update
