@@ -7,6 +7,7 @@
 
 echo '### ip-address-update start ###'
 
+service="service_value"
 token="token_value"
 domains="domains_value"
 data_file="/run/ip-address-update.dat"
@@ -49,7 +50,14 @@ if [ "$ipv4" != "$current_ipv4" ] || [ "$ipv6" != "$current_ipv6" ]; then
 	echo "current ipv6 = $current_ipv6"
 
 	# send http request to update dynamic dns
-	request_url="https://www.duckdns.org/update?domains=$domains&token=$token&ip=$current_ipv4&ipv6=$current_ipv6&verbose=true"
+	
+	if [ "$service" = "DuckDNS" ]; then
+		request_url="https://www.duckdns.org/update?domains=$domains&token=$token&ip=$current_ipv4&ipv6=$current_ipv6&verbose=true"
+	else
+		request_url="https://api.dynu.com/nic/update?hostname=$domains&myip=$current_ipv4&myipv6=$current_ipv6&password=$token"
+	fi
+	
+	
 	echo "HTTP request URL: $request_url"
 
 	curl "$request_url"
