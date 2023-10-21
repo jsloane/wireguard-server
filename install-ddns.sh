@@ -12,7 +12,7 @@ DDNS_TOKEN                         DDNS token/password
 DDNS_DOMAINS                       DDNS domains
 
 Example usage:
-sudo ./install-ddns.sh duckdns-token duckdns-domain
+sudo ./install-ddns.sh DuckDNS duckdns-token duckdns-domain
 
 This script must be run with super-user privileges.
 EOF
