@@ -35,7 +35,7 @@ echo "Looking up IPv4 address..."
 current_ipv4=`dig @resolver4.opendns.com myip.opendns.com +short`
 
 echo "Looking up IPv6 address..."
-current_ipv6=`ip -6 addr show dev $interface | awk '/inet6/{print $2}' | awk -F '/' '{print $1}' | grep -v ^::1 | grep -v ^fe80 | head -n 1`
+current_ipv6=`ip -6 -o addr show dev $interface scope global | grep -v temporary | awk '{print $4}' | cut -d/ -f1 | head -n1`
 
 echo "current ipv4 = $current_ipv4"
 echo "current ipv6 = $current_ipv6"
